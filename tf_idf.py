@@ -41,12 +41,14 @@ def create_soup(x):
     return ' '.join(x['keywords']) + ' ' + ' '.join(x['cast']) + ' ' + x['director'] + ' ' + ' '.join(x['genres'])
 
 
-metadata = pd.read_csv('movies_metadata.csv',low_memory=False)
+metadata = pd.read_csv('data_tf_idf/movies_metadata.csv',low_memory=False)
 # Load keywords and credits
-credits = pd.read_csv('credits.csv')
-keywords = pd.read_csv('keywords.csv')
+credits = pd.read_csv('data_tf_idf/credits.csv')
+keywords = pd.read_csv('data_tf_idf/keywords.csv')
 # print(metadata)
 
+# cosine_df = pd.read_csv('coss_sim.tsv', sep='\t', low_memory=False)
+# metadata =pd.read_csv('coss_sim.tsv', sep='\t', low_memory=False)
 # Remove rows with bad IDs.
 metadata = metadata.drop([19730, 29503, 35587])
 
@@ -82,6 +84,7 @@ for feature in features:
 
 
 metadata['soup'] = metadata.apply(create_soup, axis=1)
+metadata.to_csv('metadata.tsv', sep='\t', index=True)
 
 print(metadata[['soup']].head(2))
 
@@ -89,7 +92,8 @@ count = CountVectorizer(stop_words='english')
 count_matrix = count.fit_transform(metadata['soup'])
 
 cosine_sim2 = cosine_similarity(count_matrix, count_matrix)
-
+# coss_df = pd.DataFrame(cosine_sim2, columns=metadata['title'], index=metadata['title'])
+# coss_df.to_csv('coss_sim.tsv', sep='\t', index=True)
 # Reset index of your main DataFrame and construct reverse mapping as before
 metadata = metadata.reset_index()
 indices = pd.Series(metadata.index, index=metadata['title'])
@@ -101,37 +105,37 @@ indices = pd.Series(metadata.index, index=metadata['title'])
 
 #parte 2
 
-#Define a TF-IDF Vectorizer Object. Remove all english stop words such as 'the', 'a'
-tfidf = TfidfVectorizer(stop_words='english')
+# #Define a TF-IDF Vectorizer Object. Remove all english stop words such as 'the', 'a'
+# tfidf = TfidfVectorizer(stop_words='english')
 
-#Replace NaN with an empty string
-metadata['overview'] = metadata['overview'].fillna('')
+# #Replace NaN with an empty string
+# metadata['overview'] = metadata['overview'].fillna('')
 
-#Construct the required TF-IDF matrix by fitting and transforming the data
-tfidf_matrix = tfidf.fit_transform(metadata['overview'])
+# #Construct the required TF-IDF matrix by fitting and transforming the data
+# tfidf_matrix = tfidf.fit_transform(metadata['overview'])
 
-#Output the shape of tfidf_matrix
-# print(tfidf_matrix.shape)
+# #Output the shape of tfidf_matrix
+# # print(tfidf_matrix.shape)
 
-#Array mapping from feature integer indices to feature name.
-tfidf.get_feature_names_out()[5000:5010]
+# #Array mapping from feature integer indices to feature name.
+# tfidf.get_feature_names_out()[5000:5010]
 
-# Compute the cosine similarity matrix
-cosine_sim = linear_kernel(tfidf_matrix, tfidf_matrix)
+# # Compute the cosine similarity matrix
+# cosine_sim = linear_kernel(tfidf_matrix, tfidf_matrix)
 
-# print(cosine_sim.shape)
+# # print(cosine_sim.shape)
 
-indices = pd.Series(metadata.index, index=metadata['title']).drop_duplicates()
+# indices = pd.Series(metadata.index, index=metadata['title']).drop_duplicates()
 
-# print(indices[:10])
+# # print(indices[:10])
 
 
-def get_recommendations(title, cosine_sim=cosine_sim):
+def get_recommendations(title, cosine_sim):
     # Get the index of the movie that matches the title
     idx = indices[title]
 
     # Get the pairwsie similarity scores of all movies with that movie
-    sim_scores = list(enumerate(cosine_sim[idx]))
+    sim_scores = list(enumerate(cosine_sim[title]))
 
     # Sort the movies based on the similarity scores
     sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
@@ -145,6 +149,6 @@ def get_recommendations(title, cosine_sim=cosine_sim):
     # Return the top 10 most similar movies
     return metadata['title'].iloc[movie_indices]
 
-print(get_recommendations('Toy Story'))
+# print(get_recommendations('Toy Story'))
 
-print(get_recommendations('The Dark Knight Rises', cosine_sim2))
+print(get_recommendations('Stuart Little', cosine_sim2))

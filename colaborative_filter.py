@@ -1,5 +1,8 @@
-from sklearn.neighbors import NearestNeighbors
+import argparse
+import pickle
+
 import pandas as pd
+from sklearn.neighbors import NearestNeighbors
 
 '''
 PASSO A PASSO
@@ -25,6 +28,11 @@ print('The Nearest Movies to movie_0:', sim_movies)
 print('The Distance from movie_0:', movie_distances)
 
 '''
+parser = argparse.ArgumentParser()
+parser.add_argument('--uId', help='user')
+
+args = parser.parse_args()
+
 def recommend_movies(user, num_recommended_movies):
     
   print('The list of the Movies {} Has Watched \n'.format(user))
@@ -60,6 +68,7 @@ def movie_recommender(user, num_neighbors, num_recommendation):
 
   knn = NearestNeighbors(metric='cosine', algorithm='brute')
   knn.fit(df.values)
+
   distances, indices = knn.kneighbors(df.values, n_neighbors=number_neighbors)
 
   user_index = df.columns.tolist().index(user)
@@ -106,14 +115,18 @@ def movie_recommender(user, num_neighbors, num_recommendation):
       df1.iloc[m,user_index] = predicted_r
   recommend_movies(user, num_recommendation)
 
-ratings = pd.read_csv('ratings.csv', usecols=['userId','movieId','rating'])
-movies = pd.read_csv('movies.csv', usecols=['movieId','title'])
+ratings = pd.read_csv('data_colaborative/ratings.csv', usecols=['userId','movieId','rating'])
+movies = pd.read_csv('data_colaborative/movies.csv', usecols=['movieId','title'])
 ratings2 = pd.merge(ratings, movies, how='inner', on='movieId')
 
 df = ratings2.pivot_table(index='title',columns='userId',values='rating').fillna(0)
 df1 = df.copy()
+ratings2.to_csv('data_colaborative/testando.tsv', sep='\t', index=True)
 
 
 
-# recommend_movies('u9', 4)
-movie_recommender(15, 10, 400)
+# parametros
+# 1 --> usuário ID
+#2 --> numero de livros similares 
+#3 --> recomendações a serem mostradas
+movie_recommender(args.uId, 30, 10)
