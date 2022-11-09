@@ -6,16 +6,30 @@ from sklearn.metrics.pairwise import linear_kernel
 from ast import literal_eval
 # Import CountVectorizer and create the count matrix
 from sklearn.feature_extraction.text import CountVectorizer
-
 # Compute the Cosine Similarity matrix based on the count_matrix
 from sklearn.metrics.pairwise import cosine_similarity
 
-def get_director(x):
+import pandas as pd
+import pymongo
+# from pymongo import Connection
+from pandas_profiling import ProfileReport
+import json
+import ast
+#connection exemple
+# connection = Connection()
+# db = connection.test
+# tweets = db.tweets
+
+# profile = ProfileReport(df, title="Pandas Profiling Report")
+# profile.to_file("your_report.html")
+def get_author(x):
     for i in x:
         if i['job'] == 'Director':
             return i['name']
     return np.nan
-    
+
+
+
 def get_list(x):
     if isinstance(x, list):
         names = [i['name'] for i in x]
@@ -40,6 +54,28 @@ def clean_data(x):
 def create_soup(x):
     return ' '.join(x['keywords']) + ' ' + ' '.join(x['cast']) + ' ' + x['director'] + ' ' + ' '.join(x['genres'])
 
+def get_genres(x, y):
+        genres_id = [i['$oid'] for i in x]
+        # metadata['genre'].loc[metadata['genre']==genres_id]=genres.tag.tolist()
+        print('oioi')
+
+f = open('books.json')
+j = open('genre.json')
+genre = json.loads(j.read())
+data = json.loads(f.read())
+#transform mongo doc to dataframe
+metadata = pd.json_normalize(data, max_level=0)
+genres = pd.json_normalize(genre, max_level=0)
+
+
+for x in metadata['genre']:
+    for y in x:
+        print(y)
+# metadata = metadata.merge(genres, on='_id')
+# get_genres(metadata['genre'], genres)
+
+
+        
 
 metadata = pd.read_csv('data_tf_idf/movies_metadata.csv',low_memory=False)
 # Load keywords and credits
@@ -69,7 +105,7 @@ features = ['cast', 'crew', 'keywords', 'genres']
 for feature in features:
     metadata[feature] = metadata[feature].apply(literal_eval)
 
-metadata['director'] = metadata['crew'].apply(get_director)
+metadata['director'] = metadata['crew'].apply(get_author)
 
 features = ['cast', 'keywords', 'genres']
 for feature in features:

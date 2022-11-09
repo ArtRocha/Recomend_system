@@ -1,0 +1,2 @@
+[{"_id":{"$oid":"63685731fe4943fd4777be22"},"name":"Literatura nacional","tag":"literatura_nacional","createdAt":{"$date":{"$numberLong":"1667782451968"}},"updatedAt":{"$date":{"$numberLong":"1667782451968"}},"__v":{"$numberInt":"0"}},
+{"_id":{"$oid":"6362b0a756577bbcbd7b42bb"},"name":"Romance","tag":"romance","createdAt":{"$date":{"$numberLong":"1667412135182"}},"updatedAt":{"$date":{"$numberLong":"1667412135182"}},"__v":{"$numberInt":"0"}}]
