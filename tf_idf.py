@@ -1,4 +1,3 @@
-import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 # Import linear_kernel
@@ -9,13 +8,31 @@ from sklearn.feature_extraction.text import CountVectorizer
 
 # Compute the Cosine Similarity matrix based on the count_matrix
 from sklearn.metrics.pairwise import cosine_similarity
+from pandas.io.json import json_normalize
+import pandas as pd
+import pymongo
+from pymongo import Connection
+from pandas_profiling import ProfileReport
+#connection exemple
+connection = Connection()
+db = connection.test
+tweets = db.tweets
 
+#transform mongo doc to dataframe
+datapoints = list(db.collection_name.find({}))
+df = json_normalize(datapoints)
+
+profile = ProfileReport(df, title="Pandas Profiling Report")
+profile.to_file("your_report.html")
+
+#Return movies directors 
 def get_director(x):
     for i in x:
         if i['job'] == 'Director':
             return i['name']
     return np.nan
     
+#return 3 actors movies
 def get_list(x):
     if isinstance(x, list):
         names = [i['name'] for i in x]
@@ -41,10 +58,10 @@ def create_soup(x):
     return ' '.join(x['keywords']) + ' ' + ' '.join(x['cast']) + ' ' + x['director'] + ' ' + ' '.join(x['genres'])
 
 
-metadata = pd.read_csv('movies_metadata.csv',low_memory=False)
+metadata = pd.read_csv('data_tf_idf\\movies_metadata.csv',low_memory=False)
 # Load keywords and credits
-credits = pd.read_csv('credits.csv')
-keywords = pd.read_csv('keywords.csv')
+credits = pd.read_csv('data_tf_idf\\credits.csv')
+keywords = pd.read_csv('data_tf_idf\\keywords.csv')
 # print(metadata)
 
 # Remove rows with bad IDs.
@@ -62,7 +79,10 @@ metadata['id'] = metadata['id'].astype('int')
 metadata = metadata.merge(credits, on='id')
 metadata = metadata.merge(keywords, on='id')
 
-
+#cast --> de onde eu tiro os atores
+#crew --> de onde eu tiro os diretores
+#keywords --> palavras chave
+#genres --> genero
 features = ['cast', 'crew', 'keywords', 'genres']
 for feature in features:
     metadata[feature] = metadata[feature].apply(literal_eval)
@@ -81,17 +101,26 @@ for feature in features:
     metadata[feature] = metadata[feature].apply(clean_data)
 
 
+
+#sopa é feita com os atores principais, as palavras chaves da descrição do filme, nome do diretor  e os generos
 metadata['soup'] = metadata.apply(create_soup, axis=1)
+
+new_data = metadata[['id', 'title', 'overview', 'genres', 'popularity', 'budget', 'original_language', 'release_date', 'revenue', 'runtime' ,'vote_average', 'vote_count','cast', 'keywords', 'director','soup']]
+new_data.to_csv('newBase.tsv', sep='\t', index=False)
 
 print(metadata[['soup']].head(2))
 
 count = CountVectorizer(stop_words='english')
+#matriz que atribui peso as palavras
 count_matrix = count.fit_transform(metadata['soup'])
 
-cosine_sim2 = cosine_similarity(count_matrix, count_matrix)
+#calculando a similaridade entre os filmes baseando-se nas palavras passadas
+cosine_sim2 = cosine_similarity(count_matrix)
 
 # Reset index of your main DataFrame and construct reverse mapping as before
 metadata = metadata.reset_index()
+
+#NESSA PARTE SERÁ NECESSÁRIO ASSOCIAR O LIVRO COM O ID DO BANCO
 indices = pd.Series(metadata.index, index=metadata['title'])
 
 
@@ -99,34 +128,34 @@ indices = pd.Series(metadata.index, index=metadata['title'])
 
 
 
-#parte 2
+# #parte 2
 
-#Define a TF-IDF Vectorizer Object. Remove all english stop words such as 'the', 'a'
-tfidf = TfidfVectorizer(stop_words='english')
+# #Define a TF-IDF Vectorizer Object. Remove all english stop words such as 'the', 'a'
+# tfidf = TfidfVectorizer(stop_words='english')
 
-#Replace NaN with an empty string
-metadata['overview'] = metadata['overview'].fillna('')
+# #Replace NaN with an empty string
+# metadata['overview'] = metadata['overview'].fillna('')
 
-#Construct the required TF-IDF matrix by fitting and transforming the data
-tfidf_matrix = tfidf.fit_transform(metadata['overview'])
+# #Construct the required TF-IDF matrix by fitting and transforming the data
+# tfidf_matrix = tfidf.fit_transform(metadata['overview'])
 
-#Output the shape of tfidf_matrix
-# print(tfidf_matrix.shape)
+# #Output the shape of tfidf_matrix
+# # print(tfidf_matrix.shape)
 
-#Array mapping from feature integer indices to feature name.
-tfidf.get_feature_names_out()[5000:5010]
+# #Array mapping from feature integer indices to feature name.
+# tfidf.get_feature_names_out()[5000:5010]
 
-# Compute the cosine similarity matrix
-cosine_sim = linear_kernel(tfidf_matrix, tfidf_matrix)
+# # Compute the cosine similarity matrix
+# cosine_sim = linear_kernel(tfidf_matrix, tfidf_matrix)
 
-# print(cosine_sim.shape)
+# # print(cosine_sim.shape)
 
-indices = pd.Series(metadata.index, index=metadata['title']).drop_duplicates()
+# indices = pd.Series(metadata.index, index=metadata['title']).drop_duplicates()
 
-# print(indices[:10])
+# # print(indices[:10])
 
 
-def get_recommendations(title, cosine_sim=cosine_sim):
+def get_recommendations(title, cosine_sim):
     # Get the index of the movie that matches the title
     idx = indices[title]
 
@@ -145,6 +174,6 @@ def get_recommendations(title, cosine_sim=cosine_sim):
     # Return the top 10 most similar movies
     return metadata['title'].iloc[movie_indices]
 
-print(get_recommendations('Toy Story'))
+# print(get_recommendations('Toy Story'))
 
-print(get_recommendations('The Dark Knight Rises', cosine_sim2))
+print(get_recommendations('Toy Story', cosine_sim2))

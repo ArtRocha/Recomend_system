@@ -1,6 +1,7 @@
 from sklearn.neighbors import NearestNeighbors
 import pandas as pd
 
+
 '''
 PASSO A PASSO
 
@@ -25,6 +26,7 @@ print('The Nearest Movies to movie_0:', sim_movies)
 print('The Distance from movie_0:', movie_distances)
 
 '''
+
 def recommend_movies(user, num_recommended_movies):
     
   print('The list of the Movies {} Has Watched \n'.format(user))
@@ -106,8 +108,8 @@ def movie_recommender(user, num_neighbors, num_recommendation):
       df1.iloc[m,user_index] = predicted_r
   recommend_movies(user, num_recommendation)
 
-ratings = pd.read_csv('ratings.csv', usecols=['userId','movieId','rating'])
-movies = pd.read_csv('movies.csv', usecols=['movieId','title'])
+ratings = pd.read_csv('data_colaborative\\ratings.csv', usecols=['userId','movieId','rating'])
+movies = pd.read_csv('data_colaborative\\movies.csv', usecols=['movieId','title'])
 ratings2 = pd.merge(ratings, movies, how='inner', on='movieId')
 
 df = ratings2.pivot_table(index='title',columns='userId',values='rating').fillna(0)
@@ -116,4 +118,4 @@ df1 = df.copy()
 
 
 # recommend_movies('u9', 4)
-movie_recommender(15, 10, 400)
+movie_recommender(15, 100, 10)
