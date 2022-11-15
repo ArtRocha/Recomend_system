@@ -10,20 +10,6 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from pandas.io.json import json_normalize
 import pandas as pd
-import pymongo
-from pymongo import Connection
-from pandas_profiling import ProfileReport
-#connection exemple
-connection = Connection()
-db = connection.test
-tweets = db.tweets
-
-#transform mongo doc to dataframe
-datapoints = list(db.collection_name.find({}))
-df = json_normalize(datapoints)
-
-profile = ProfileReport(df, title="Pandas Profiling Report")
-profile.to_file("your_report.html")
 
 #Return movies directors 
 def get_director(x):
