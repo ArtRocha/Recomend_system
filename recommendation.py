@@ -4,12 +4,16 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import pandas as pd
 from pymongo import MongoClient
-# import argparse
+from bson.objectid import ObjectId
+import argparse
+from ast import literal_eval
+import pprint
+parser = argparse.ArgumentParser()
+parser.add_argument("-uid", '--userId',type=str)
+args = parser.parse_args()
 
-# parser = argparse.ArgumentParser()
-# parser.add_argument("-uid", '--userId', type='str')
-
-# id = parser.userId
+id = args.userId
+id= ObjectId(id)
 
 #MONGO CONECCTION
 client = MongoClient()
@@ -18,7 +22,7 @@ books = db.books
 users = db.users
 ads = db.ads
 
-user_id = db.users.find_one({})
+user_id = users.find_one({'_id': id})
 id = user_id['_id']
 
 
@@ -104,7 +108,6 @@ for a in (books.aggregate(pipeline_books)):
         if feature == 'result':
             a[feature] =  take_genre(a[feature])
         a[feature] = clean_data(a[feature])
-    print('o')
     a['sopa'] = create_soup(a)
     bank.append(a)
 
@@ -121,7 +124,6 @@ indices = pd.Series(df.index, index=df.index)
 df2 = pd.DataFrame(cosine_sim2, columns=df.index, index=df.index)
 
 movie_id = get_books_recommendations(id, df2)
-print(movie_id)
 
 ads_pipeline = [
     {
@@ -150,14 +152,6 @@ ads_pipeline = [
     }
 ]
 
-
-ads_recommend_query = ads.find({'id_book':
-                            {'$in':movie_id}
-                            })
-
-
-
-
 def get_ads_recommendations(query=ads.aggregate(ads_pipeline)):
     premium_recommend = []
     recommendation =[]
@@ -170,4 +164,6 @@ def get_ads_recommendations(query=ads.aggregate(ads_pipeline)):
     return {'premium': premium_recommend, 'recommend':recommendation}
 
 reco = get_ads_recommendations()
-print(reco)
+pprint.pprint(reco['premium'])
+print("___"*30)
+pprint.pprint(reco['recommend'])
