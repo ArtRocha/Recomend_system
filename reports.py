@@ -162,7 +162,7 @@ def analisys_pdf():
     # pdf.cell(w=0,h=3,ln=True, align='R')
     pdf.ln(4)
 
-    pdf.image( troca_venda_chart_path, x=70, w=95, h=80)
+    pdf.image( troca_venda_chart_path, x=60, w=95, h=80)
     # legend = 'This chart represent Distribution of ratings'
     # pdf.set_font('Times', size = 8)
     # pdf.cell(w=0,h=3,ln=True, align='L')
