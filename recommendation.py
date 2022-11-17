@@ -6,14 +6,19 @@ import pandas as pd
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 import argparse
-from ast import literal_eval
-import pprint
-parser = argparse.ArgumentParser()
-parser.add_argument("-uid", '--userId',type=str)
-args = parser.parse_args()
+import json
 
-id = args.userId
-id= ObjectId(id)
+#RECEBE O ID DO USUÁRIO
+    #O id do usuário deve ser passado como string 
+    #EXEMPLO DE CHAMADA "python recommendation.py -uid {id_usuario}"
+# parser = argparse.ArgumentParser()
+# parser.add_argument("-uid", "--userId",type=str)
+# args = parser.parse_args()
+
+# id = args.userId
+# id= ObjectId(id)
+
+id= ObjectId('63729f16011783b55d9423f5')
 
 #MONGO CONECCTION
 client = MongoClient()
@@ -22,33 +27,47 @@ books = db.books
 users = db.users
 ads = db.ads
 
-user_id = users.find_one({'_id': id})
-id = user_id['_id']
+# user_id = users.find_one({"_id": id})
+# id = user_id["_id"]
 
 
 #PIPELINES
 pipeline_books = [
     {
-        '$lookup': {
-            'from': 'genres', 
-            'localField': 'genre', 
-            'foreignField': '_id', 
-            'as': 'result'
+        "$lookup": {
+            "from": "genres", 
+            "localField": "genre", 
+            "foreignField": "_id", 
+            "as": "result"
+        }
+    }, {
+        '$project': {
+            'createdAt': 0, 
+            'updatedAt': 0, 
+            'result.createdAt': 0, 
+            'result.updatedAt': 0
         }
     }
 ]
 
 pipeline_users = [
     {
-        '$match': {
-            '_id': id
+        "$match": {
+            "_id": id
         }
     }, {
-        '$lookup': {
-            'from': 'genres', 
-            'localField': 'genres', 
-            'foreignField': '_id', 
-            'as': 'result'
+        "$lookup": {
+            "from": "genres", 
+            "localField": "genres", 
+            "foreignField": "_id", 
+            "as": "result"
+        }
+    }, {
+        '$project': {
+            'createdAt': 0, 
+            'updatedAt': 0, 
+            'result.createdAt': 0, 
+            'result.updatedAt': 0
         }
     }
 ]
@@ -57,7 +76,7 @@ pipeline_users = [
 
 def take_genre(x):
     if isinstance(x,list):
-        return [i['name'] for i in x]
+        return [i["name"] for i in x]
     return np.nan
 
 
@@ -69,10 +88,10 @@ def clean_data(x):
         if isinstance(x, str):
             return str.lower(x.replace(" ", ""))
         else:
-            return ''
+            return ""
 
 def create_soup(x):
-    return ' '.join(x['key_words']) + ' ' + ' '.join(x['authors']) + ' ' + ' '.join(x['result'])
+    return " ".join(x["key_words"]) + " " + " ".join(x["authors"]) + " " + " ".join(x["result"])
 
 def get_books_recommendations(user_id, cosine_sim):
     # Get the index of the movie that matches the title
@@ -80,50 +99,50 @@ def get_books_recommendations(user_id, cosine_sim):
 
     # Get the pairwsie similarity scores of all movies with that movie
     # Sort the movies based on the similarity scores
-    sim_scores = df2[idx].rank(ascending=0, method='first')
+    sim_scores = df2[idx].sort_values(ascending=False)
 
     # Get the scores of the 10 most similar movies
-    sim_scores = sim_scores
+    sim_scores = sim_scores[1:60]
 
     # Get the movie indices
-    movie_indices = [i for i in sim_scores.index]
+    books_indices = [i for i in sim_scores.index]
 
     # Return the top 10 most similar movies
-    return movie_indices
+    return books_indices
 
 
 bank = []
 for user in users.aggregate(pipeline_users):
-    user['result'] = take_genre(user['result'])
-    user['result'] = clean_data(user['result'])
-    user['sopa'] = ' '.join(user['result'])
-    user['title'] = user['name']
+    user["result"] = take_genre(user["result"])
+    user["result"] = clean_data(user["result"])
+    user["sopa"] = " ".join(user["result"])
+    user["title"] = user["name"]
     bank.append(user)
 
 for a in (books.aggregate(pipeline_books)):
     genre_list=[]
-    features = [ 'key_words', 'authors', 'result']
+    features = [ "key_words", "authors", "result"]
 
     for feature in features:
-        if feature == 'result':
+        if feature == "result":
             a[feature] =  take_genre(a[feature])
         a[feature] = clean_data(a[feature])
-    a['sopa'] = create_soup(a)
+    a["sopa"] = create_soup(a)
     bank.append(a)
 
 df = pd.json_normalize(bank, max_level=0)
-df = df.set_index('_id')
+df = df.set_index("_id")
 
-count = CountVectorizer(stop_words='english')
+count = CountVectorizer(stop_words="english")
 #matriz que atribui peso as palavras
-count_matrix = count.fit_transform(df['sopa'])
+count_matrix = count.fit_transform(df["sopa"])
 
 #calculando a similaridade entre os filmes baseando-se nas palavras passadas
 cosine_sim2 = cosine_similarity(count_matrix)
 indices = pd.Series(df.index, index=df.index)
 df2 = pd.DataFrame(cosine_sim2, columns=df.index, index=df.index)
 
-movie_id = get_books_recommendations(id, df2)
+book_id = get_books_recommendations(id, df2)
 
 ads_pipeline = [
     {
@@ -134,9 +153,16 @@ ads_pipeline = [
             'as': 'user'
         }
     }, {
+        '$lookup': {
+            'from': 'books', 
+            'localField': 'id_book', 
+            'foreignField': '_id', 
+            'as': 'book'
+        }
+    }, {
         '$match': {
             'id_book': {
-                '$in': movie_id
+                '$in': book_id
             }
         }
     }, {
@@ -154,16 +180,29 @@ ads_pipeline = [
 
 def get_ads_recommendations(query=ads.aggregate(ads_pipeline)):
     premium_recommend = []
-    recommendation =[]
+    rest_recommendation =[]
     for  ad in query:
+        ad['_id'] = str(ad['_id'])
+        ad['id_user'] = str(ad['id_user'])
+        ad['id_book'] = str(ad['id_book'])
+        ad['user'][0]['_id'] = str(ad['user'][0]['_id'])
+        if "id_user_buy" in ad != None: ad['id_user_buy'] = str(ad['id_user_buy'])
+        for key,adUser in enumerate(ad['user'][0]['genres']):
+            ad['user'][0]['genres'][key] = str(adUser)
         if len(premium_recommend) <=14:
-            if ad['user'][0]['account_type']=='premium':
+            if ad["user"][0]["account_type"]=="premium":
                 premium_recommend.append(ad)
-        elif ad['user'][0]['account_type']=='standard' or ad['user'][0]['account_type']=='premium':
-            recommendation.append(a)     
-    return {'premium': premium_recommend, 'recommend':recommendation}
+        elif ad["user"][0]["account_type"]=="standard" or ad["user"][0]["account_type"]=="premium":
+            rest_recommendation.append(ad)     
+    return {"premium": premium_recommend, "res_recommend":rest_recommendation}
+
+
+# get_ads_recommendations()
 
 reco = get_ads_recommendations()
-pprint.pprint(reco['premium'])
-print("___"*30)
-pprint.pprint(reco['recommend'])
+
+
+
+print(json.dumps(reco))
+# print("___"*30)
+# print(json.dumps(reco["res_recommend"]))

@@ -15,8 +15,84 @@ books = db.books
 users = db.users
 ads = db.ads
 
-take_books = books.find({})
-df = pd.json_normalize(take_books, max_level=0)
+ads_pipeline = [
+    {
+        '$lookup': {
+            'from': 'users', 
+            'localField': 'id_user', 
+            'foreignField': '_id', 
+            'as': 'user'
+        }
+    }, {
+        '$lookup': {
+            'from': 'books', 
+            'localField': 'id_book', 
+            'foreignField': '_id', 
+            'as': 'book'
+        }
+    }, {
+        '$match': {
+            '$or': [
+                {
+                    'user.account_type': 'premium'
+                }, {
+                    'user.account_type': 'standard'
+                }
+            ]
+        }
+    }
+]
+def render_mpl_table(data, col_width=3.0, row_height=0.625, font_size=14,
+                     header_color='#40466e', row_colors=['#f1f1f2', 'w'], edge_color='w',
+                     bbox=[0, 0, 1, 1], header_columns=0,
+                     ax=None, **kwargs):
+    if ax is None:
+        size = (np.array(data.shape[::-1]) + np.array([0, 1])) * np.array([col_width, row_height])
+        fig, ax = plt.subplots(figsize=size)
+        ax.axis('off')
+    mpl_table = ax.table(cellText=data.values, bbox=bbox, colLabels=data.columns, **kwargs)
+    mpl_table.auto_set_font_size(False)
+    mpl_table.set_fontsize(font_size)
+
+    for k, cell in mpl_table._cells.items():
+        cell.set_edgecolor(edge_color)
+        if k[0] == 0 or k[1] < header_columns:
+            cell.set_text_props(weight='bold', color='w')
+            cell.set_facecolor(header_color)
+        else:
+            cell.set_facecolor(row_colors[k[0]%len(row_colors) ])
+    return ax.get_figure(), ax
+
+bank=[]
+for ads in ads.aggregate(ads_pipeline):
+    bank.append(ads)
+
+df = pd.json_normalize(bank, max_level=0)
+#cleaning ads dataset
+df['user_name']=''
+df['ads_type']=''
+for ind,user in enumerate(df['user']):
+    df.at[ind,'user_name'] = user[0]['name']
+    df.at[ind,'ads_type'] = user[0]['account_type']
+
+df['title']=''
+df['book_year']= ''
+df['book_location']=''
+df['publisher']=''
+df['author']=''
+for ind,book in enumerate(df['book']):
+    if 'year' not in book[0].keys():
+        df.at[ind,'title'] = book[0]['title']
+        df.at[ind,'author'] = book[0]['authors'][0]
+        df.at[ind,'book_year'] = None
+        df.at[ind,'book_location'] = book[0]['location']
+        df.at[ind,'publisher'] = book[0]['publisher']
+    else:
+        df.at[ind,'title'] = book[0]['title']
+        df.at[ind,'author'] = book[0]['authors'][0]
+        df.at[ind,'book_year'] = book[0]['year']
+        df.at[ind,'book_location'] = book[0]['location']
+        df.at[ind,'publisher'] = book[0]['publisher']
 
 print('aa')
 def analisys_pdf():
@@ -40,12 +116,17 @@ def analisys_pdf():
 
     NetWork = 'Relatório'
 
-    distribution_chart_path = 'images/distribution_graph.png'
-    height_comparation_path = 'images/height_comparation.png'
-    # max_force_comparation_path = 'images/max_force_comparation.png'
-    force_comparation_path = 'images/force_comparation.png'
-    correlation_variables = 'images/correlation_variables.png'
-    # position_compare = 'images/position_variables.png'
+    troca_venda_table_path = 'images/troca_venda_table.png'
+    troca_venda_chart_path = 'images/troca_venda_chart.png'
+
+    best_publisher_tab_path = 'images/best_publisher_table.png'
+    best_publisher_chart_path = 'images/best_publisher_chart.png'
+
+    author_tro_ven_tab_path = 'images/author_tro_ven_tab.png'
+    author_tro_ven_chart_path = 'images/author_tro_ven_chart.png'
+
+    maiores_anunciadores_tab_path = 'images/maiores_anunciadores_tab.png'
+    maiores_anunciadores_chart_path = 'images/maiores_anunciadores_chart.png'
 
 
     process_day = datetime.now()
@@ -57,62 +138,86 @@ def analisys_pdf():
     pdf.set_font('')
     pdf.set_font('Times', size = 11, style = 'B')
     pdf.ln(2)
-    pdf.cell(190, 5, txt = 'Distribution of ratings in database', ln=1, align='C')
+    pdf.cell(190, 5, txt = 'Distribuição de trocas e vendas', ln=1, align='C')
     pdf.ln(1)
 
     #Primeiro gráfico - Distribuição das variaveis alvo e preditoras
-    fig= plt.figure(figsize=(15,5) ) 
-    a= df["genre"].value_counts(normalize=True).plot(kind='bar') 
-    plt.title('Rating Distribution')
+    troca_venda = df['type_ad'].value_counts()
+    troca_venda_tab =troca_venda.to_frame().T 
+    fig, axes = render_mpl_table(troca_venda_tab, header_columns=0, col_width=2.0)
     plt.tight_layout() 
-    plt.savefig( distribution_chart_path)
+    fig.savefig( troca_venda_table_path)
+    # axes.table(cellText=troca_venda_tab.values, colLabels=['troca', 'vendas'], loc='left')
+    fig = plt.figure()
+    troca_venda.plot(kind='pie',colormap='Accent')
+    plt.tight_layout() 
+    plt.savefig( troca_venda_chart_path) 
 
 
 
     #Salvar imagem com legenda
-    pdf.image( distribution_chart_path, x=40, w=pdf.w-80, h=48)
-    legend = 'This chart represent Distribution of ratings'
-    pdf.set_font('Times', size = 8)
-    pdf.cell(w=0,h=3,txt=legend,ln=True, align='C')
+    pdf.image( troca_venda_table_path, x=80, w=40, h=20)
+    # legend = 'This chart represent Distribution of ratings'
+    # pdf.set_font('Times', size = 8)
+    # pdf.cell(w=0,h=3,ln=True, align='R')
+    pdf.ln(4)
+
+    pdf.image( troca_venda_chart_path, x=70, w=95, h=80)
+    # legend = 'This chart represent Distribution of ratings'
+    # pdf.set_font('Times', size = 8)
+    # pdf.cell(w=0,h=3,ln=True, align='L')
     pdf.ln(4)
 
     #Segundo gráfico - Correlação entre as variaveis 
+    best_publisher = df['publisher'].value_counts().sort_values(ascending=False).head(10)
+    best_publisher_tab=best_publisher.to_frame().T
+    fig, axes = render_mpl_table(best_publisher_tab, header_columns=0, col_width=5.0)
+    fig.savefig(best_publisher_tab_path)
+    fig = plt.figure()
+    best_publisher.fillna(0).plot(kind='bar',figsize=(9, 7),colormap='PuOr')
+    plt.title("Melhores publicadoras")
+    plt.tight_layout() 
+    plt.savefig( best_publisher_chart_path) 
     pdf.set_font('')
     pdf.set_font('Times', size = 11, style = 'B')
     pdf.ln(3)
-    pdf.cell(190, 5, txt = 'Count evaluation per user', ln=1, align='C')
+    pdf.cell(190, 5, txt = 'Top 10 publicadoras', ln=1, align='C')
     
-    fig= plt.figure(figsize=(15,5) ) 
-    corr_plot = df.groupby('title')['title'].count().head(20).sort_values(ascending=False).plot(kind='bar')
-    plt.title("Best Voter")
-    plt.savefig(correlation_variables)
-
     #Salvar imagem com legenda
-    pdf.image(correlation_variables, x=30, w=150, h=60)
-    legend = 'Users who rating more books'
-    pdf.set_font('Times', size = 8)
-    pdf.cell(w=0,h=3,txt=legend,ln=True, align='C')
+    pdf.image(best_publisher_tab_path, x=0, w=210, h=20)
+    # legend = 'Users who rating more books'
+    # pdf.set_font('Times', size = 8)
+    # pdf.cell(w=0,h=3,ln=True, align='L')
+    pdf.ln(4)
+
+    pdf.image(best_publisher_chart_path, x=30, w=150, h=80)
+    # legend = 'Users who rating more books'
+    # pdf.set_font('Times', size = 8)
+    # pdf.cell(w=0,h=3,ln=True, align='L')
     pdf.ln(4)
 
 
     #Terceiro gráfico - Analise das comparações entre as colunas de altura
+    author_tro_ven = df.groupby('author')['type_ad'].value_counts().sort_values(ascending=False).head(13)
+    author_tro_ven_tab=author_tro_ven.to_frame()
+
     pdf.set_font('')
     pdf.set_font('Times', size = 11, style = 'B')
     pdf.ln(6)
     pdf.cell(190, 5, txt = 'Count evaluation per books', ln=1, align='C')
     
 
-    fig= plt.figure(figsize=(15,5) ) 
-    df['language_count'] = pd.DataFrame(df.groupby('language')['title'].count())
-    new = df.sort_values('language_count', ascending=False)
-    new['language_count'].head(20).plot(kind='bar')
-    plt.title("Most popular books")
-    plt.savefig(height_comparation_path)
+    fig,ax= render_mpl_table(author_tro_ven_tab, header_columns=0, col_width=2.0)
+    fig.savefig(author_tro_ven_tab_path)
+    fig=plt.figure(figsize=(9, 7))
+    author_tro_ven.unstack(level=1).fillna(0).plot(kind='bar', subplots=True,layout=(1,2),colormap='Accent')
+    plt.title("Trocas x Vendas por autores")
+    plt.savefig(author_tro_ven_chart_path)
 
-    pdf.image(height_comparation_path, x=30, w=150, h=60)
-    legend = 'This image is the relationship of the height variables with the target variables with boxplot'
+    pdf.image(author_tro_ven_tab_path, x=30, w=150, h=60)
+    # legend = ''
     pdf.set_font('Times', size = 8)
-    pdf.cell(w=0,h=3,txt=legend,ln=True, align='C')
+    pdf.cell(w=0,h=3,ln=True, align='C')
     pdf.ln(4)
 
     #Segunda página
@@ -122,6 +227,8 @@ def analisys_pdf():
     pdf.set_font('Times', size=11, style='B')
 
     #Quarto gráfico - Analise das comparações entre as colunas de força
+    maiores_anunciadores = df.groupby('user_name')['type_ad'].value_counts().sort_values(ascending=False).head(10)
+    maiores_anunciadores_tab = maiores_anunciadores.to_frame()
     pdf.set_font('')
     pdf.set_font('Times', size = 11, style = 'B')
     pdf.ln(4)
@@ -129,16 +236,15 @@ def analisys_pdf():
     pdf.ln(3)
 
     #Analise da distribuição das variaveis preditoras x variaveis alvo
-    fig, ax= plt.subplots(figsize=(15,3))
-    ax.table(cellText=new.head(10).values, colLabels=new.columns, loc='center')
-    ax.set_axis_off()
-    # plt.tight_layout()
-    plt.savefig(force_comparation_path)
-
-    pdf.image(force_comparation_path,x=8, w=200 ,h=80)
-    legend = 'This image the relationship of the force variables with the target variables in boxplot'
+    fig, ax= render_mpl_table(maiores_anunciadores_tab, header_columns=1, col_width=2.0)
+    fig.savefig(maiores_anunciadores_tab_path)
+    fig=plt.figure()
+    maiores_anunciadores.unstack(level=1).plot(kind='bar',figsize=(9, 7),colormap='Accent')
+    fig.savefig(maiores_anunciadores_chart_path)
+    pdf.image(maiores_anunciadores_tab_path,x=8, w=200 ,h=80)
+    # legend = 'This image the relationship of the force variables with the target variables in boxplot'
     pdf.set_font('Times', size = 8)
-    pdf.cell(w=0,h=3,txt=legend,ln=True, align='C')
+    pdf.cell(w=0,h=3,ln=True, align='C')
     pdf.ln(h=2)
 
     # #Quinto gráfico - Analise das comparações entre as colunas max_force
