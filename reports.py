@@ -8,8 +8,8 @@ from pymongo import MongoClient
 #MONGO CONECCTION
 client = MongoClient()
 db = client.liber
-books = db.books
-users = db.users
+# books = db.books
+# users = db.users
 ads = db.ads
 
 ads_pipeline = [
@@ -36,6 +36,52 @@ ads_pipeline = [
                     'user.account_type': 'standard'
                 }
             ]
+        }
+    }, {
+        '$project': {
+            'id_user': 1, 
+            'type_ad': 1, 
+            'price': 1, 
+            'user_name': '$user.name', 
+            'ads_type': '$user.account_type', 
+            'title': '$book.title', 
+            'book_year': '$book.year', 
+            'book_location': '$book.location', 
+            'publisher': '$book.publisher', 
+            'author': '$book.authors', 
+            'id_user_by': 1
+        }
+    }, {
+        '$unwind': {
+            'path': '$user_name'
+        }
+    }, {
+        '$unwind': {
+            'path': '$ads_type'
+        }
+    }, {
+        '$unwind': {
+            'path': '$title'
+        }
+    }, {
+        '$unwind': {
+            'path': '$book_year'
+        }
+    }, {
+        '$unwind': {
+            'path': '$book_location'
+        }
+    }, {
+        '$unwind': {
+            'path': '$publisher'
+        }
+    }, {
+        '$unwind': {
+            'path': '$author'
+        }
+    }, {
+        '$unwind': {
+            'path': '$author'
         }
     }
 ]
@@ -65,50 +111,20 @@ for ads in ads.aggregate(ads_pipeline):
     bank.append(ads)
 
 df = pd.json_normalize(bank, max_level=0)
-#cleaning ads dataset
-df['user_name']=''
-df['ads_type']=''
-for ind,user in enumerate(df['user']):
-    df.at[ind,'user_name'] = user[0]['name']
-    df.at[ind,'ads_type'] = user[0]['account_type']
 
-df['title']=''
-df['book_year']= ''
-df['book_location']=''
-df['publisher']=''
-df['author']=''
-for ind,book in enumerate(df['book']):
-        if 'location' not in book[0].keys():
-            df.at[ind,'title'] = book[0]['title']
-            df.at[ind,'author'] = book[0]['authors'][0]
-            df.at[ind,'book_year'] = book[0]['year']
-            df.at[ind,'book_location'] = None
-            df.at[ind,'publisher'] = book[0]['publisher']
-        elif 'year' not in book[0].keys():
-                df.at[ind,'title'] = book[0]['title']
-                df.at[ind,'author'] = book[0]['authors'][0]
-                df.at[ind,'book_year'] = None
-                df.at[ind,'book_location'] = book[0]['location']
-                df.at[ind,'publisher'] = book[0]['publisher']
-        elif 'publisher' not in book[0].keys():
-                df.at[ind,'title'] = book[0]['title']
-                df.at[ind,'author'] = book[0]['authors'][0]
-                df.at[ind,'book_year'] = book[0]['year']
-                df.at[ind,'book_location'] = book[0]['location']
-                df.at[ind,'publisher'] = None
-        elif 'year' not in book[0].keys() and 'location' not in book[0].keys():
-            df.at[ind,'title'] = book[0]['title']
-            df.at[ind,'author'] = book[0]['authors'][0]
-            df.at[ind,'book_year'] = None
-            df.at[ind,'book_location'] = None
-            df.at[ind,'publisher'] = book[0]['publisher']
-        else:
-            df.at[ind,'title'] = book[0]['title']
-            df.at[ind,'author'] = book[0]['authors'][0]
-            df.at[ind,'book_year'] = book[0]['year']
-            df.at[ind,'book_location'] = book[0]['location']
-            df.at[ind,'publisher'] = book[0]['publisher']
-print('aa')
+#image Dirs
+troca_venda_table_path = 'images/troca_venda_table.png'
+troca_venda_chart_path = 'images/troca_venda_chart.png'
+
+best_publisher_tab_path = 'images/best_publisher_table.png'
+best_publisher_chart_path = 'images/best_publisher_chart.png'
+
+author_tro_ven_tab_path = 'images/author_tro_ven_tab.png'
+author_tro_ven_chart_path = 'images/author_tro_ven_chart.png'
+
+livros_caros_tab_path = 'images/maiores_anunciadores_tab.png'
+livros_caros_chart_path = 'images/maiores_anunciadores_chart.png'
+
 def analisys_pdf():
     process_day = datetime.now()
     datetime_str = process_day.strftime('%d-%m-%Y')
@@ -116,7 +132,7 @@ def analisys_pdf():
 
     class MyFPDF(FPDF, HTMLMixin):
         def header(self):
-            self.image('logo.png',10,6,22)
+            self.image('logo-min.png',10,6,22)
             self.set_font('Arial', 'B', 10)
             self.cell(80)
             self.cell(100,32,f'Relatório de Anúncios Liber', 0, 0, 'R')
@@ -136,17 +152,7 @@ def analisys_pdf():
     pdf.set_left_margin(10)
     pdf.set_font('Times', size=14, style='B')
 
-    troca_venda_table_path = 'images/troca_venda_table.png'
-    troca_venda_chart_path = 'images/troca_venda_chart.png'
-
-    best_publisher_tab_path = 'images/best_publisher_table.png'
-    best_publisher_chart_path = 'images/best_publisher_chart.png'
-
-    author_tro_ven_tab_path = 'images/author_tro_ven_tab.png'
-    author_tro_ven_chart_path = 'images/author_tro_ven_chart.png'
-
-    livros_caros_tab_path = 'images/maiores_anunciadores_tab.png'
-    livros_caros_chart_path = 'images/maiores_anunciadores_chart.png'
+    
     
     pdf.set_font('Times', size = 10, style = 'I')
     pdf.multi_cell(173, 5, txt =f'{datetime_str} às {time}', align = 'R')
